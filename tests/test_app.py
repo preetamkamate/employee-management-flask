@@ -87,8 +87,10 @@ def test_create_employee_trims_values_and_returns_created_record(client):
         {"email": "person@example.com", "department": "Engineering"},
         {"name": "", "email": "person@example.com", "department": "Engineering"},
         {"name": "   ", "email": "person@example.com", "department": "Engineering"},
+        {"name": "Person", "email": "", "department": "Engineering"},
         {"name": "Person", "email": 42, "department": "Engineering"},
         {"name": "Person", "email": "person@example.com", "department": None},
+        {"name": "Person", "email": "person@example.com", "department": "   "},
     ],
 )
 def test_create_employee_rejects_invalid_input(client, payload):
