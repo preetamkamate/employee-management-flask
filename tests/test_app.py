@@ -57,3 +57,95 @@ def test_list_employees_returns_records_in_id_order(client, app):
             "department": "People",
         },
     ]
+
+
+def test_create_employee_trims_values_and_returns_created_record(client):
+    response = client.post(
+        "/employees",
+        json={
+            "name": "  Casey Morgan  ",
+            "email": " casey@example.com ",
+            "department": " Product ",
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.get_json() == {
+        "id": 1,
+        "name": "Casey Morgan",
+        "email": "casey@example.com",
+        "department": "Product",
+    }
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        None,
+        [],
+        {},
+        {"email": "person@example.com", "department": "Engineering"},
+        {"name": "", "email": "person@example.com", "department": "Engineering"},
+        {"name": "   ", "email": "person@example.com", "department": "Engineering"},
+        {"name": "Person", "email": 42, "department": "Engineering"},
+        {"name": "Person", "email": "person@example.com", "department": None},
+    ],
+)
+def test_create_employee_rejects_invalid_input(client, payload):
+    response = client.post("/employees", json=payload)
+
+    assert response.status_code == 400
+    assert "error" in response.get_json()
+
+
+def test_create_employee_rejects_non_json_body(client):
+    response = client.post(
+        "/employees", data="not json", content_type="text/plain"
+    )
+
+    assert response.status_code == 400
+    assert "error" in response.get_json()
+
+
+def test_create_employee_rejects_duplicate_email(client):
+    payload = {
+        "name": "Taylor Park",
+        "email": "taylor@example.com",
+        "department": "Finance",
+    }
+    first_response = client.post("/employees", json=payload)
+    duplicate_response = client.post(
+        "/employees",
+        json={
+            "name": "Taylor Park II",
+            "email": "taylor@example.com",
+            "department": "Legal",
+        },
+    )
+
+    assert first_response.status_code == 201
+    assert duplicate_response.status_code == 409
+    assert "error" in duplicate_response.get_json()
+
+
+def test_created_employee_can_be_retrieved(client):
+    client.post(
+        "/employees",
+        json={
+            "name": "Riley Diaz",
+            "email": "riley@example.com",
+            "department": "Operations",
+        },
+    )
+
+    response = client.get("/employees")
+
+    assert response.status_code == 200
+    assert response.get_json() == [
+        {
+            "id": 1,
+            "name": "Riley Diaz",
+            "email": "riley@example.com",
+            "department": "Operations",
+        }
+    ]

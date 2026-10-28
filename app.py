@@ -67,6 +67,50 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
         ).fetchall()
         return jsonify([dict(employee) for employee in employees])
 
+    @app.post("/employees")
+    def create_employee():
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            return jsonify({"error": "Request body must be a JSON object"}), 400
+
+        fields = ("name", "email", "department")
+        invalid_fields = [
+            field
+            for field in fields
+            if not isinstance(payload.get(field), str) or not payload[field].strip()
+        ]
+        if invalid_fields:
+            return (
+                jsonify(
+                    {
+                        "error": "Required fields must be non-empty strings",
+                        "fields": invalid_fields,
+                    }
+                ),
+                400,
+            )
+
+        values = tuple(payload[field].strip() for field in fields)
+        connection = get_db()
+        cursor = connection.execute(
+            """
+            INSERT INTO employees (name, email, department)
+            VALUES (?, ?, ?)
+            ON CONFLICT(email) DO NOTHING
+            """,
+            values,
+        )
+        if cursor.rowcount == 0:
+            connection.rollback()
+            return jsonify({"error": "An employee with this email already exists"}), 409
+
+        employee = connection.execute(
+            "SELECT id, name, email, department FROM employees WHERE id = ?",
+            (cursor.lastrowid,),
+        ).fetchone()
+        connection.commit()
+        return jsonify(dict(employee)), 201
+
     return app
 
 
